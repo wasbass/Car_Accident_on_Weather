@@ -128,7 +128,7 @@ regm_pure <- lm(logmotor~ holiday + typhoonholiday +
 summary(regm_pure)
 
 #這邊看到汽車的解釋變異比機車小很多
-
+#*****************************************************************
 #接著放入車禍資料的落遲項
 
 regc_lagy <- lm(logcar~ holiday + typhoonholiday +
@@ -144,7 +144,7 @@ regm_lagy <- lm(logmotor~ holiday + typhoonholiday +
 summary(regm_lagy)
 
 #這邊由adj R^2挑選放入四項落遲項
-
+#*****************************************************************
 #接著放入天氣項目，這邊雨量先放入數值資料並放入平方項
 regc_rainnoclass <- lm(logcar~ raindrop + rainsq +
                       temp + wingspeed + rainhour + maxwing + visb + 
@@ -177,7 +177,7 @@ regm_rainwithclass = lm(logmotor~ drizzle + light + medium + heavy + storm +
 
 summary(regm_rainwithclass)
 #分組後R^2都上升了，且這邊的雨量分組大致都顯著，即使不顯著也為負相關，代表下雨會讓車禍數量減少
-
+#*****************************************************************
 #這邊再加上前一天的雨量
 
 regc_twodayrain = lm(logcar~ drizzle + light + medium + heavy + storm + 
@@ -198,7 +198,7 @@ regm_twodayrain = lm(logmotor~ drizzle + light + medium + heavy + storm +
 
 summary(regm_twodayrain)
 #R^2有顯著增加，雖然只有前一天為毛毛雨的係數顯著
-
+#*****************************************************************
 #接著再放入潛在的交互作用項
 regc_interaction = lm(logcar~ drizzle + light + medium + heavy + storm + 
                        lastdrizzle + lastlight + lastmedium + lastheavy + laststorm +
@@ -247,8 +247,7 @@ summary(regm_interaction_fix)
 #根據adj R^2做模型選擇，兩者留下的交互作用項不太一樣
 #此時car的R^2為0.4656，adj R^2為0.4511
 #此時motor的R^2為0.678，adj R^2為0.6676
-
-
+#*****************************************************************
 #最後再放入捷運搭乘人數，並考慮落遲項
 regc_auxmrt_lag = lm(logcar~ drizzle + light + medium + heavy + storm + 
                    lastdrizzle + lastlight + lastmedium + lastheavy + laststorm +
@@ -274,7 +273,7 @@ summary(regm_auxmrt_lag)
 #這邊顯示放到五階落遲項都很顯著，六階後的進步幅度不明顯，我們先考慮只放五階
 #car的R^2為0.4982，adj R^2為0.4816，增加0.033
 #motor的R^2為0.6934，adj R^2為0.6818，增加0.016
-
+#*****************************************************************
 #這邊做個對照，如果只放捷運人數但沒放天氣
 
 regc_mrtnoweather = lm(logcar~  holiday + typhoonholiday +
@@ -305,7 +304,7 @@ reg_mrtonweather = lm(diflogmrt~ drizzle + light + medium + heavy + storm +
 summary(reg_mrtpure)
 summary(reg_mrtonweather)
 #比較這兩個模型可知天氣確實對捷運搭乘人數有解釋力，儘管非常有限
-
+#*****************************************************************
 xyplot(regc_auxmrt_lag$residuals ~ accident1921$t )
 xyplot(regm_auxmrt_lag$residuals ~ accident1921$t )
 
@@ -326,7 +325,7 @@ xyplot( motorfatal ~ t , data = accident1921)
 
 logitc_null <- glm( carfatal ~ 1 , data = accident1921 , family = binomial)
 logitm_null <- glm( motorfatal ~ 1 , data = accident1921 , family = binomial)
-#----------------------------------------------------------------------------------
+#*****************************************************************
 
 logitc_lagy <- glm(carfatal ~ carfatallast5,
                    data = accident1921 , family = binomial)
@@ -340,7 +339,7 @@ logitc_pure <- glm( carfatal ~  holiday + typhoonholiday +
 summary(logitc_pure)
 lrtest(logitc_lagy,logitc_pure) #car-pure模型不顯著
 
-#----------------------------------------------------------------------------------
+#*****************************************************************
 
 logitm_lagy <- glm( motorfatal ~ motorfatallast5,
                    data = accident1921 , family = binomial)
@@ -354,41 +353,61 @@ logitm_pure <- glm( motorfatal ~  holiday + typhoonholiday +
 summary(logitm_pure)
 lrtest(logitm_null,logitm_pure) #motor-pure模型不顯著
 
-#----------------------------------------------------------------------------------
+#*****************************************************************
 
 logitc_weather_fullinteraction = glm(carfatal ~ carfatallast5 +
                                    drizzle + light + medium + heavy + storm + 
-                                   lastdrizzle + lastlight + lastmedium + lastheavy + laststorm +
-                                   temp + wingspeed + rainhour + maxwing + visb +
+                                   wingspeed + rainhour + visb +
                                    drizzle * wingspeed + drizzle * wingspeed+ light * wingspeed + medium * wingspeed + heavy * wingspeed + storm * wingspeed 
                                   ,data = accident1921,family = binomial)
 summary(logitc_weather_fullinteraction)
-lrtest(logitc_lagy,logitc_weather_interaction)
+lrtest(logitc_lagy,logitc_weather_fullinteraction)
+#加入所有的天氣變數，模型仍然不顯著，嘗試修剪變數
 
 logitc_weather_revised = glm(carfatal ~ carfatallast5 +
-                                       drizzle + light + medium + heavy + storm +
-                                       wingspeed + holiday + typhoonholiday +
+                                       drizzle + 
+                                       wingspeed + 
                                        drizzle * wingspeed 
                                      ,data = accident1921,family = binomial)
 summary(logitc_weather_revised)
 lrtest(logitc_lagy,logitc_weather_revised)
+#p-value幾乎沒有變化，甚至上升了，嘗試再加入捷運人數
 
 logitc_mrt = glm(carfatal ~ carfatallast5 +
                                drizzle + light + medium + heavy + storm +
-                               wingspeed + holiday + typhoonholiday +
+                               wingspeed + 
                                drizzle * wingspeed +
                                log(mrt)
                              ,data = accident1921,family = binomial)
 
 summary(logitc_mrt)
 lrtest(logitc_lagy,logitc_mrt)
+#加入捷運人數後，模型還是不顯著，在logit的架構下汽車死亡案件似乎完全為隨機事件，只與前五天的死亡車禍數量有關
 
+logitm_weather_fullinteraction = glm(motorfatal ~ motorfatallast5 +
+                                       drizzle + light + medium + heavy + storm + 
+                                       wingspeed + rainhour + visb +
+                                       drizzle * wingspeed + drizzle * wingspeed+ light * wingspeed + medium * wingspeed + heavy * wingspeed + storm * wingspeed 
+                                     ,data = accident1921,family = binomial)
+summary(logitm_weather_fullinteraction)
+lrtest(logitm_null,logitm_weather_fullinteraction)
+#在加入所有天氣變數下，模型完全不顯著，跟Null Model沒兩樣
+#嘗試修剪變數
 
-logitm_weather_fullinteraction = glm(motorfatal ~ drizzle + light + medium + heavy + storm + 
-                                  lastdrizzle + lastlight + lastmedium + lastheavy + laststorm +
-                                  holiday + typhoonholiday +
-                                  temp + wingspeed + rainhour + maxwing + visb +
-                                  drizzle * wingspeed + drizzle * wingspeed+ light * wingspeed + medium * wingspeed + heavy * wingspeed + storm * wingspeed +
-                                  auxt1 + I(auxt1^2) + auxt2 + I(auxt2^2) + auxt3 + I(auxt3^2) + I(auxt3^3)
-                                ,data = accident1921,family = binomial)
-summary(logitm_wether_interaction)#完全不顯著
+logitm_weather_revised = glm(motorfatal ~ motorfatallast5 +
+                               drizzle + light + medium + heavy + storm +
+                               wingspeed +
+                               drizzle * wingspeed 
+                             ,data = accident1921,family = binomial)
+summary(logitm_weather_revised)
+lrtest(logitm_null,logitm_weather_revised)
+#仍然不顯著，再嘗試加入捷運人數
+logitm_mrt = glm(motorfatal ~ motorfatallast5 +
+                               drizzle + light + medium + heavy + storm +
+                               wingspeed +
+                               drizzle * wingspeed+
+                               log(mrt)
+                             ,data = accident1921,family = binomial)
+summary(logitm_mrt)
+lrtest(logitm_null,logitm_mrt)
+#加入捷運人數後，模型還是不顯著，在logit的架構下機車死亡案件完全為隨機事件，跟Null Model沒兩樣
