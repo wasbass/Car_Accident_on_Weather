@@ -14,6 +14,12 @@
   library(tseries)
   library(sandwich)
   library(rms)
+  library(woe)
+  library(devtools)
+  library(scorecard)
+  library(InformationValue)
+  library(dplyr)
+  library(woe)
 }
 #####資料預處理#####
 setwd("C:\\RRR")
@@ -34,6 +40,8 @@ accident1921$diflogmrtl5 = log(accident1921$mrtl5) - log(accident1921$mrtl6)
 accident1921$diflogmrtl6 = log(accident1921$mrtl6) - log(accident1921$mrtl7)
 accident1921$carfatallast5 = accident1921$carfatall1 + accident1921$carfatall2 + accident1921$carfatall3 + accident1921$carfatall4 + accident1921$carfatall5
 accident1921$motorfatallast5 = accident1921$motorfatall1 + accident1921$motorfatall2 + accident1921$motorfatall3 + accident1921$motorfatall4 + accident1921$motorfatall5
+accident1921$date <- NULL
+accident1921 <- as.data.frame(accident1921)
 }
 #####對應變數做單根檢定#####
 adf.test(accident1921$logmotor)
@@ -81,39 +89,56 @@ adf.test(accident1921$visb)
 
 #####EDA區#####
 #我們觀察捷運人數和車禍人數與T的關係
-
+palette("default")
 xyplot(logcar~t , data = accident1921,
        col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 ,
-       pch = ( accident1921$holiday | accident1921$typhoonholiday ) +15)
+       pch = 15)
 
 xyplot(logmotor~t , data = accident1921,
        col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 ,
-       pch = ( accident1921$holiday | accident1921$typhoonholiday ) +15)
+       pch = 15)
+
+xyplot(logmrt~t , data = accident1921,
+       col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 ,
+       pch = +15)
 
 xyplot(diflogmrt~t , data = accident1921,
        col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 ,
-       pch = ( accident1921$holiday | accident1921$typhoonholiday ) +15)
+       pch = 15)
 
 #如果再加上天氣的因素
 
-xyplot(logcar~t , data = accident1921,
-       col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 + 3 * accident1921$sunny,
-       pch = ( accident1921$holiday | accident1921$typhoonholiday ) +15)
+palette(c("blue","orange"))
+{
+par( mfrow = c(2,1) , mar = c(4, 4, 1, 1)) 
 
-xyplot(logmotor~t , data = accident1921,
-       col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 + 3 * accident1921$sunny,
-       pch = ( accident1921$holiday | accident1921$typhoonholiday ) +15)
+plot( filter(accident1921 , holiday==0)$t , filter(accident1921 , holiday==0)$logcar,
+      col = filter(accident1921 , holiday==0)$sunny + 1,
+      pch = 15 , xlab = "time(workday)" , ylab = "logcar")
 
-xyplot(diflogmrt~t , data = accident1921,
-       col = ( accident1921$holiday | accident1921$typhoonholiday ) +1 + 3 * accident1921$sunny ,
-       pch = ( accident1921$holiday | accident1921$typhoonholiday ) +15)
+plot( filter(accident1921 , holiday==1)$t , filter(accident1921 , holiday==1)$logcar,
+      col = filter(accident1921 , holiday==0)$sunny + 1,
+      pch = 15 , xlab = "time(holiday)" , ylab = "logcar")
+}
 
+{
+  par( mfrow = c(2,1) , mar = c(4, 4, 1, 1)) 
+  
+  plot( filter(accident1921 , holiday==0)$t , filter(accident1921 , holiday==0)$logmotor,
+        col = filter(accident1921 , holiday==0)$sunny + 1,
+        pch = 15 , xlab = "time(workday)" , ylab = "logmotor")
+  
+  plot( filter(accident1921 , holiday==1)$t , filter(accident1921 , holiday==1)$logmotor,
+        col = filter(accident1921 , holiday==0)$sunny + 1,
+        pch = 15 , xlab = "time(holiday)" , ylab = "logmotor")
+}     
+palette("default")
 #觀察車禍數量與雨量的關係
-xyplot(carminor ~ raindrop , data = accident1921)
-xyplot(motorminor ~ raindrop , data = accident1921)
+xyplot(carminor ~ raindrop , data = accident1921 , pch = 19)
+xyplot(motorminor ~ raindrop , data = accident1921, pch = 19)
 
-xyplot(logcar ~ raindrop , data = accident1921)
-xyplot(logmotor ~ raindrop , data = accident1921)
+xyplot(logcar ~ raindrop , data = accident1921, pch = 19)
+xyplot(logmotor ~ raindrop , data = accident1921, pch = 19)
 
 #####模型比較區#####
 #接著開始比較模型，先從沒放天氣資料也沒放捷運人數的模型
@@ -305,11 +330,15 @@ summary(reg_mrtpure)
 summary(reg_mrtonweather)
 #比較這兩個模型可知天氣確實對捷運搭乘人數有解釋力，儘管非常有限
 #*****************************************************************
-xyplot(regc_auxmrt_lag$residuals ~ accident1921$t )
-xyplot(regm_auxmrt_lag$residuals ~ accident1921$t )
+xyplot(regc_auxmrt_lag$residuals ~ accident1921$t , pch = 19 , col = "black")
+xyplot(regm_auxmrt_lag$residuals ~ accident1921$t , pch = 19 , col = "black")
 
 #在最後的reg_interaction模型中，殘差大致呈現White noise
 #####HAC標準誤做t-test#####
+
+vif(regc_auxmrt_lag)
+vif(regm_auxmrt_lag)
+#除了時間趨勢、有放入交互作用項的變數之外，其他係數項的VIF並沒有遠大過於1
 
 coeftest(regc_auxmrt_lag, vcov = vcovHC( regc_auxmrt_lag, type = "HC3", method = "arellano" ))
 coeftest(regm_auxmrt_lag, vcov = vcovHC( regm_auxmrt_lag, type = "HC3", method = "arellano" ))
@@ -320,11 +349,28 @@ which.max(lm.influence(regm_auxmrt_lag)$hat)
 regm_auxmrt_lag_hatmatrix <- data.frame(lm.influence(regm_auxmrt_lag)$hat)
 
 #####Logistic model#####
-xyplot( carfatal ~ t , data = accident1921)
-xyplot( motorfatal ~ t , data = accident1921)
+palette(c("blue","orange"))
+xyplot( carfatal ~ t , data = accident1921 , pch =19 , col = accident1921$sunny + 1)
+xyplot( motorfatal ~ t , data = accident1921 , pch =19 , col = accident1921$sunny + 1)
+palette("default")
+#好像沒有發現死亡車禍跟天氣有明顯的關係
+
 
 logitc_null <- glm( carfatal ~ 1 , data = accident1921 , family = binomial)
 logitm_null <- glm( motorfatal ~ 1 , data = accident1921 , family = binomial)
+
+#用Information value來判斷各個變數的預測能力
+
+iv.mult(accident1921 , y = "carfatal" , summary =TRUE , verbose = FALSE)
+
+logitc_iv6 <- glm( carfatal ~ diflogmrtl6 + diflogmrtl4  , data = accident1921 , family = binomial)
+summary(logitc_iv6)
+lrtest(logitc_null,logitc_iv6)
+
+logitc_iv2 <- glm( carfatal ~ t + tsq , data = accident1921 , family = binomial)
+summary(logitc_iv2)
+lrtest(logitc_null,logitc_iv2)
+#看起來用一般的trend就好了 沒有必要再另外用調整過後的趨勢
 #*****************************************************************
 
 logitc_lagy <- glm(carfatal ~ carfatallast5,
